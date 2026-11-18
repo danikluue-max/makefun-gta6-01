@@ -24,6 +24,11 @@ export function createPlayerMesh() {
   const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.27, 0.1, 10), new THREE.MeshLambertMaterial({ color: 0xd83a2e }));
   cap.position.y = 2.0;
   group.add(cap);
+  // A worn backpack: Raka carries everything he owns, and it marks him out
+  // from the crowd at a glance.
+  const pack = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.5, 0.2), new THREE.MeshLambertMaterial({ color: 0x8a5fc7 }));
+  pack.position.set(-0.36, 1.15, 0);
+  group.add(pack);
   const legGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.7, 6);
   const legL = new THREE.Mesh(legGeo, pantsMat);
   legL.position.set(0, 0.35, 0.13);

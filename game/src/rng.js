@@ -28,6 +28,15 @@ export function chance(random, p) {
   return random() < p;
 }
 
+// A deterministic 0..1 hash of an integer, for placing scenery (clouds,
+// billboards) without touching the seeded city random: the same index always
+// gives the same spot, so a staged screenshot is repeatable.
+export function hash01(n) {
+  let h = (n * 374761393 + 668265263) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
 export function shuffle(random, list) {
   const out = list.slice();
   for (let i = out.length - 1; i > 0; i -= 1) {

@@ -4,6 +4,7 @@
 // canvas, so it stays crisp over the 3D view.
 
 import { CITY } from './config.js';
+import { MISSION_DEFS } from './missions.js';
 
 function starRow(stars) {
   let out = '';
@@ -16,21 +17,39 @@ export function createHud() {
   root.id = 'hud';
   root.innerHTML = `
     <div id="hud-top-left">
-      <div id="hud-money">$0</div>
+      <div id="hud-mission">
+        <div id="hud-mission-title">MISI 1/8</div>
+        <div id="hud-mission-objective">Ke Bengkel Ombak untuk misi</div>
+        <div id="hud-mission-giver">DARA · BENGKEL OMBAK</div>
+      </div>
       <div id="hud-health"><div id="hud-health-fill"></div></div>
-      <div id="hud-hint">WASD jalan · E masuk mobil · Klik tembak · P jeda · R radio · M bisu</div>
-    </div>
-    <div id="hud-top-center">
-      <div id="hud-stars">☆☆☆☆☆</div>
-      <div id="hud-wanted-label"></div>
+      <div id="hud-hint">WASD jalan · E mobil · Klik tembak · Shift NOS · C perbaiki · V cat</div>
     </div>
     <div id="hud-top-right">
+      <div id="hud-money">$0</div>
+      <div id="hud-stars">☆☆☆☆☆</div>
+      <div id="hud-wanted-label"></div>
       <div id="hud-clock">08:00</div>
       <div id="hud-radio">RADIO NUSA</div>
     </div>
     <div id="hud-objective"><span id="hud-objective-text"></span><span id="hud-objective-dist"></span></div>
-    <div id="hud-speed"><span id="hud-speed-num">0</span><span id="hud-speed-unit">km/h</span></div>
+    <div id="hud-speed"><span id="hud-speed-num">0</span><span id="hud-speed-unit">KM/H</span><div id="hud-nos"><div id="hud-nos-fill"></div><span id="hud-nos-label">NOS</span></div></div>
     <div id="hud-toast"></div>
+    <div id="hud-dialogue">
+      <svg id="hud-dialogue-portrait" viewBox="0 0 64 64" width="52" height="52" aria-hidden="true">
+        <circle cx="32" cy="32" r="31" fill="#f2a93b"/>
+        <path d="M18 64 Q19 44 32 44 Q45 44 46 64 Z" fill="#c75b4a"/>
+        <circle cx="32" cy="27" r="13" fill="#f2c9a0"/>
+        <path d="M19 27 Q18 11 32 11 Q46 11 45 27 Q44 17 37 15 Q32 13 27 15 Q20 17 19 27 Z" fill="#2a2118"/>
+        <circle cx="27" cy="28" r="1.6" fill="#221a08"/>
+        <circle cx="37" cy="28" r="1.6" fill="#221a08"/>
+        <path d="M28 35 Q32 38 36 35" stroke="#b06a4a" stroke-width="1.4" fill="none"/>
+      </svg>
+      <div>
+        <div id="hud-dialogue-name">DARA · BENGKEL OMBAK</div>
+        <div id="hud-dialogue-text"></div>
+      </div>
+    </div>
     <div id="hud-crosshair">+</div>
     <canvas id="hud-minimap" width="220" height="220"></canvas>
     <div id="hud-damage"></div>
@@ -40,6 +59,8 @@ export function createHud() {
     root,
     money: root.querySelector('#hud-money'),
     healthFill: root.querySelector('#hud-health-fill'),
+    missionTitle: root.querySelector('#hud-mission-title'),
+    missionObjective: root.querySelector('#hud-mission-objective'),
     stars: root.querySelector('#hud-stars'),
     wantedLabel: root.querySelector('#hud-wanted-label'),
     clock: root.querySelector('#hud-clock'),
@@ -48,7 +69,12 @@ export function createHud() {
     objectiveDist: root.querySelector('#hud-objective-dist'),
     speed: root.querySelector('#hud-speed'),
     speedNum: root.querySelector('#hud-speed-num'),
+    nosFill: root.querySelector('#hud-nos-fill'),
+    nosLabel: root.querySelector('#hud-nos-label'),
     toast: root.querySelector('#hud-toast'),
+    dialogue: root.querySelector('#hud-dialogue'),
+    dialogueName: root.querySelector('#hud-dialogue-name'),
+    dialogueText: root.querySelector('#hud-dialogue-text'),
     crosshair: root.querySelector('#hud-crosshair'),
     minimap: root.querySelector('#hud-minimap'),
     damage: root.querySelector('#hud-damage'),
@@ -95,6 +121,14 @@ export function drawMinimap(hud, game) {
     ctx.moveTo(a.x, a.y);
     ctx.lineTo(b.x, b.y);
     ctx.stroke();
+  }
+  // District labels, so the minimap reads as a city instead of a grid.
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.font = 'bold 10px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  for (const [label, lx, lz] of [['PASAR', -40, -40], ['PELABUHAN', 180, 160], ['MALL', 40, -120], ['PANTAI', 0, 210]]) {
+    const lp = worldToMap(lx, lz, size);
+    ctx.fillText(label, lp.x, lp.y);
   }
   // Mission marker.
   const marker = game.missions.markerPos;
@@ -165,6 +199,26 @@ export function updateHud(hud, game) {
   hud.money.textContent = `$${player.money.toLocaleString('en-US')}`;
   hud.healthFill.style.width = `${Math.max(0, player.health)}%`;
   hud.healthFill.style.background = player.health > 50 ? '#3fae7a' : player.health > 25 ? '#f2a93b' : '#e05a4e';
+  // Mission panel (top-left): title + objective + stage, like the
+  // leaderboard covers — the player always sees which job and which step.
+  if (missions.active) {
+    hud.missionTitle.textContent = `MISI ${missions.completed + 1}/${MISSION_DEFS.length} · ${missions.active.def.title.toUpperCase()}`;
+    hud.missionObjective.textContent = missions.objectiveLabel;
+  } else if (missions.state === 'allDone') {
+    hud.missionTitle.textContent = 'SEMUA MISI SELESAI';
+    hud.missionObjective.textContent = 'Jelajahi kota — Teluk Nusa milikmu.';
+  } else {
+    hud.missionTitle.textContent = `MISI ${missions.completed + 1}/${MISSION_DEFS.length} · SIAP`;
+    hud.missionObjective.textContent = 'Ke Bengkel Ombak (tanda kuning) untuk misi';
+  }
+  // Dialogue box: Dara speaks when a mission starts, with her portrait.
+  if (missions.dialogue && missions.dialogueTimer > 0) {
+    hud.dialogue.style.opacity = '1';
+    hud.dialogueName.textContent = `${missions.dialogue.name} · ${missions.dialogue.sub}`;
+    hud.dialogueText.textContent = missions.dialogue.text;
+  } else {
+    hud.dialogue.style.opacity = '0';
+  }
   hud.stars.textContent = starRow(wanted.stars);
   hud.stars.style.color = wanted.stars > 0 ? '#ffd23c' : 'rgba(255,255,255,0.45)';
   hud.wantedLabel.textContent = wanted.stars > 0 ? 'DICARI POLISI' : '';
@@ -182,6 +236,10 @@ export function updateHud(hud, game) {
   if (player.inCar && player.car) {
     hud.speed.style.display = 'block';
     hud.speedNum.textContent = String(Math.round(Math.abs(player.car.speed) * 3.6));
+    // NOS tank: full bar in cyan, flashing while the boost is on.
+    hud.nosFill.style.width = `${Math.round(player.car.nos * 100)}%`;
+    hud.nosFill.style.background = player.car.nosActive ? '#ff5a4e' : '#7ee2e2';
+    hud.nosLabel.style.color = player.car.nosActive ? '#ff5a4e' : '#7ee2e2';
   } else {
     hud.speed.style.display = 'none';
   }

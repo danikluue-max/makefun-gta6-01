@@ -6,6 +6,8 @@ import { resolveCollisions } from './city.js';
 
 const SHIRTS = [0xe05a4e, 0x4a90d9, 0x3fae7a, 0xf2a93b, 0x8a5fc7, 0xe8e4da, 0x2e6fd8, 0xd86a2e];
 const SKINS = [0xc98d64, 0x8a5a3b, 0xe8b98a, 0x6b4423];
+const PANTS = [0x2e3138, 0x4a4a52, 0x3a5a8a, 0x6b4a3a, 0x2f5a3a];
+const HATS = [0xd83a2e, 0xf2c230, 0x3fae7a, 0xe8e4da, 0x8a5fc7];
 
 export function createPedMesh(random) {
   const group = new THREE.Group();
@@ -13,7 +15,7 @@ export function createPedMesh(random) {
   const skin = SKINS[Math.floor(random() * SKINS.length)];
   const shirtMat = new THREE.MeshLambertMaterial({ color: shirt });
   const skinMat = new THREE.MeshLambertMaterial({ color: skin });
-  const pantsMat = new THREE.MeshLambertMaterial({ color: 0x2e3138 });
+  const pantsMat = new THREE.MeshLambertMaterial({ color: PANTS[Math.floor(random() * PANTS.length)] });
 
   const body = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.32, 0.85, 8), shirtMat);
   body.position.y = 1.05;
@@ -23,6 +25,25 @@ export function createPedMesh(random) {
   head.position.y = 1.72;
   head.castShadow = true;
   group.add(head);
+  // A third of the crowd wears a cap; a third carries a shoulder bag; heights
+  // vary, so the street is people instead of clones.
+  if (random() < 0.34) {
+    const cap = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.25, 0.25, 0.09, 10),
+      new THREE.MeshLambertMaterial({ color: HATS[Math.floor(random() * HATS.length)] }),
+    );
+    cap.position.y = 1.92;
+    group.add(cap);
+  }
+  if (random() < 0.34) {
+    const bag = new THREE.Mesh(
+      new THREE.BoxGeometry(0.14, 0.3, 0.24),
+      new THREE.MeshLambertMaterial({ color: 0x8a6a48 }),
+    );
+    bag.position.set(-0.32, 1.05, 0);
+    group.add(bag);
+  }
+  group.scale.setScalar(0.92 + random() * 0.16);
   const legGeo = new THREE.CylinderGeometry(0.09, 0.09, 0.62, 6);
   const legL = new THREE.Mesh(legGeo, pantsMat);
   legL.position.set(0, 0.31, 0.12);

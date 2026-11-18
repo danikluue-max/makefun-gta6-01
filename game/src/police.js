@@ -63,6 +63,14 @@ function makeHelicopter(scene) {
   const rotor = new THREE.Mesh(new THREE.BoxGeometry(9, 0.08, 0.5), rotorMat);
   rotor.position.y = 1.1;
   group.add(rotor);
+  // A translucent rotor disc: the blur a real rotor reads as from below.
+  const blur = new THREE.Mesh(
+    new THREE.CircleGeometry(4.6, 20),
+    new THREE.MeshBasicMaterial({ color: 0x22242a, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false }),
+  );
+  blur.rotation.x = -Math.PI / 2;
+  blur.position.y = 1.12;
+  group.add(blur);
   const skidMat = new THREE.MeshLambertMaterial({ color: 0x3a3f46 });
   for (const wz of [0.8, -0.8]) {
     const skid = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.1, 0.12), skidMat);
@@ -70,17 +78,36 @@ function makeHelicopter(scene) {
     group.add(skid);
   }
   const cone = new THREE.Mesh(
-    new THREE.ConeGeometry(7, 55, 16, 1, true),
-    new THREE.MeshBasicMaterial({ color: 0xfff2b0, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false }),
+    new THREE.ConeGeometry(5.5, 22, 16, 1, true),
+    new THREE.MeshBasicMaterial({ color: 0xfff2b0, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false }),
   );
-  cone.position.y = -28;
+  cone.position.y = -11;
   cone.rotation.x = Math.PI;
   group.add(cone);
   group.userData.cone = cone;
   group.userData.rotor = rotor;
   group.visible = false;
   scene.add(group);
-  return group;
+  // The searchlight's pool on the street below: a warm circle that follows
+  // the helicopter, so the eye in the sky reads even when its body is at
+  // the top edge of the frame — and a dark shadow blob under it by day.
+  const pool = new THREE.Mesh(
+    new THREE.CircleGeometry(6.5, 20),
+    new THREE.MeshBasicMaterial({ color: 0xfff2b0, transparent: true, opacity: 0.28, depthWrite: false }),
+  );
+  pool.rotation.x = -Math.PI / 2;
+  pool.position.y = 0.06;
+  pool.visible = false;
+  scene.add(pool);
+  const shadow = new THREE.Mesh(
+    new THREE.CircleGeometry(4.5, 16),
+    new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3, depthWrite: false }),
+  );
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.position.y = 0.05;
+  shadow.visible = false;
+  scene.add(shadow);
+  return { heli: group, pool, shadow };
 }
 
 export class Police {
@@ -89,7 +116,10 @@ export class Police {
     this.city = city;
     this.random = random;
     this.cars = [];
-    this.heli = makeHelicopter(scene);
+    const { heli, pool, shadow } = makeHelicopter(scene);
+    this.heli = heli;
+    this.heliPool = pool;
+    this.heliShadow = shadow;
     this.heliAngle = 0;
     this.spawnTimer = 0;
     this.sirenPhase = 0;
@@ -142,13 +172,18 @@ export class Police {
       while (diff < -Math.PI) diff += Math.PI * 2;
       const steer = Math.max(-1, Math.min(1, diff * 1.4));
       const throttle = dist > 8 ? 1 : 0.4;
-      car.drive(dt, throttle, 0, steer, CAR_TUNING.policeSpeed);
+      // Five stars: the police drive faster and hit harder — the top tier
+      // has to feel different from four.
+      const topSpeed = wanted.stars >= 5 ? CAR_TUNING.policeSpeed * 1.12 : CAR_TUNING.policeSpeed;
+      car.drive(dt, throttle, 0, steer, topSpeed);
       // Ram: shove the player's car. On foot, getting caught is handled by the
-      // busted timer in main.js, not by damage here.
+      // busted timer in main.js, not by damage here. The shove points AWAY
+      // from the police car (the old code had the sign backwards and dragged
+      // the player toward the rammer — and sideways off the road).
       if (dist < 3.4 && player.inCar && player.car) {
         player.car.speed *= 0.82;
-        player.car.x += (dx / (dist || 1)) * -1.2;
-        player.car.z += (dz / (dist || 1)) * -1.2;
+        player.car.x += (dx / (dist || 1)) * 1.2;
+        player.car.z += (dz / (dist || 1)) * 1.2;
       }
       // Flash the light bar, alternating red and blue.
       const bar = car.mesh.userData.lightBar;
@@ -160,19 +195,29 @@ export class Police {
     }
 
     // Helicopter at four stars and above: circle the player with a searchlight.
+    // It flies low (22 m) and wide (38 m) on purpose: at the old 58 m the
+    // camera, which looks slightly down, never saw it — only the minimap ring
+    // did. Now the body crosses the top of the frame and its light pool and
+    // shadow mark the street below it.
     if (wanted.stars >= 4) {
       this.heli.visible = true;
+      this.heliPool.visible = true;
+      this.heliShadow.visible = true;
       this.heliAngle += dt * 0.5;
       // The searchlight sweeps side to side as the helicopter circles.
       const cone = this.heli.userData.cone;
       if (cone) cone.rotation.z = Math.sin(time * 0.9) * 0.22;
-      const hx = px + Math.cos(this.heliAngle) * 26;
-      const hz = pz - Math.sin(this.heliAngle) * 26;
-      this.heli.position.set(hx, 58, hz);
+      const hx = px + Math.cos(this.heliAngle) * 38;
+      const hz = pz - Math.sin(this.heliAngle) * 38;
+      this.heli.position.set(hx, 22, hz);
       this.heli.rotation.y = this.heliAngle;
       this.heli.userData.rotor.rotation.y += dt * 22;
+      this.heliPool.position.set(hx, 0.06, hz);
+      this.heliShadow.position.set(hx, 0.05, hz);
     } else {
       this.heli.visible = false;
+      this.heliPool.visible = false;
+      this.heliShadow.visible = false;
     }
     return near;
   }

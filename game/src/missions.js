@@ -1,6 +1,7 @@
 // The story: Raka owes Dara, who runs Bengkel Ombak, a garage on the edge of the
-// market district. Five jobs pay the debt off — a delivery, a stolen car, a police
-// raid, a round of collections, and one last getaway to the yacht at the port.
+// market district. Eight jobs pay the debt off — a delivery, a stolen car, a police
+// raid, a round of collections, a timed courier run, a stolen taxi, one last
+// getaway to the yacht at the port, and a street race against the rival Jalak.
 // Missions unlock in order; each one is a small state machine over objectives.
 
 import * as THREE from 'three';
@@ -14,6 +15,7 @@ export const MISSION_DEFS = [
     title: 'Nasi Bungkus',
     giver: 'Dara',
     brief: 'Ambil nasi bungkus di Pasar Nusa, antar ke Pelabuhan. Jangan sampai dingin.',
+    line: 'Raka, nasi bungkusnya jangan sampai dingin. Pelabuhan, cepat!',
     objectives: [
       { type: 'goto', label: 'Ambil pesanan di Pasar Nusa', x: -40, z: -40, radius: 7 },
       { type: 'goto', label: 'Antar ke Pelabuhan', x: 180, z: 160, radius: 7, timeLimit: 120 },
@@ -24,6 +26,7 @@ export const MISSION_DEFS = [
     title: 'Mobil Pesanan',
     giver: 'Dara',
     brief: 'Ada Kancil GT merah parkir di Mall Nusa. Bawa ke bengkel. Jangan tanya punya siapa.',
+    line: 'Kancil GT merah di Mall Nusa. Bawa ke bengkel. Jangan tanya punya siapa.',
     objectives: [
       // The Kancil waits at the kerb south of the mall (z = -87, on the
       // sidewalk at the edge of road z = -80). It used to spawn at the mall's
@@ -43,6 +46,7 @@ export const MISSION_DEFS = [
     title: 'Razia',
     giver: 'Dara',
     brief: 'Polisi razia besar-besaran. Bertahan 60 detik — atau hilang dari radar mereka.',
+    line: 'Polisi razia besar-besaran. Bertahan — atau hilang dari radar mereka.',
     objectives: [
       { type: 'survive', label: 'Bertahan dari razia polisi', seconds: 60 },
     ],
@@ -52,20 +56,58 @@ export const MISSION_DEFS = [
     title: 'Tagihan Pasar',
     giver: 'Dara',
     brief: 'Empat pedagang di Pasar Nusa belum bayar. Ambil tagihannya, satu per satu.',
+    line: 'Empat pedagang belum bayar. Ambil tagihannya, satu per satu.',
     objectives: [
       { type: 'collect', label: 'Kumpulkan tagihan pasar (0/4)', spots: [[-60, -60], [-20, -60], [-60, -20], [-20, -20]], radius: 3.5 },
     ],
   },
   {
     id: 5,
+    title: 'Kirim Kilat',
+    giver: 'Dara',
+    brief: 'Tiga paket, tiga tempat, satu tenggat. Mall, menara, pelabuhan — jangan sampai telat.',
+    line: 'Tiga paket, tiga tempat, satu tenggat. Jangan sampai telat!',
+    objectives: [
+      { type: 'goto', label: 'Antar paket ke Mall Nusa', x: 40, z: -87, radius: 7, timeLimit: 90 },
+      { type: 'goto', label: 'Antar paket ke Menara Nusa', x: 40, z: 40, radius: 7, timeLimit: 90 },
+      { type: 'goto', label: 'Antar paket ke Pelabuhan', x: 180, z: 160, radius: 7, timeLimit: 90 },
+    ],
+  },
+  {
+    id: 6,
+    title: 'Taksi Terakhir',
+    giver: 'Dara',
+    brief: 'Seorang sopir taksi berutang padaku. Bawa taksinya ke bengkel — dia boleh jalan kaki.',
+    line: 'Sopir taksi itu berutang padaku. Bawa taksinya ke bengkel.',
+    objectives: [
+      { type: 'stealTaxi', label: 'Curi taksi di boulevard', x: 0, z: 80, radius: 6 },
+      { type: 'goto', label: 'Bawa taksi ke Bengkel Ombak', x: -120, z: 134, radius: 8 },
+    ],
+  },
+  {
+    id: 7,
     title: 'Pelarian Terakhir',
     giver: 'Dara',
     brief: 'Ini yang terakhir. Lewati tiga pos, sampai ke yacht di dermaga. Polisi tidak akan diam.',
+    line: 'Ini yang terakhir, Raka. Lewati tiga pos, sampai ke yacht. Polisi tidak akan diam.',
     objectives: [
       { type: 'goto', label: 'Pos 1: persimpangan boulevard', x: 0, z: 160, radius: 9 },
       { type: 'goto', label: 'Pos 2: tikungan barat', x: -160, z: 0, radius: 9 },
       { type: 'goto', label: 'Pos 3: jalan utara', x: 0, z: -160, radius: 9 },
       { type: 'goto', label: 'Sampai ke yacht di dermaga', x: 196, z: 196, radius: 9 },
+    ],
+  },
+  {
+    id: 8,
+    title: 'Balapan Liar',
+    giver: 'Dara',
+    brief: 'Si Jalak menantangmu balapan liar keliling kota. Empat pos, satu tenggat — kalahkan dia di garis finis pelabuhan.',
+    line: 'Si Jalak menantangmu balapan liar. Kalahkan dia, dan utangmu lunas... hampir.',
+    objectives: [
+      { type: 'goto', label: 'Pos 1: persimpangan boulevard', x: 0, z: 160, radius: 9, timeLimit: 75 },
+      { type: 'goto', label: 'Pos 2: tikungan barat', x: -160, z: 0, radius: 9, timeLimit: 75 },
+      { type: 'goto', label: 'Pos 3: jalan utara', x: 0, z: -160, radius: 9, timeLimit: 75 },
+      { type: 'goto', label: 'Finis: gerbang pelabuhan', x: 180, z: 160, radius: 9, timeLimit: 90 },
     ],
   },
 ];
@@ -79,7 +121,7 @@ function makeBeacon() {
   beam.position.y = 30;
   group.add(beam);
   const marker = new THREE.Mesh(
-    new THREE.OctahedronGeometry(1.1),
+    new THREE.OctahedronGeometry(0.85),
     new THREE.MeshBasicMaterial({ color: 0xffd23c }),
   );
   marker.position.y = 6;
@@ -126,6 +168,10 @@ export class MissionManager {
     this.state = 'idle'; // idle | active | allDone
     this.message = '';
     this.messageTimer = 0;
+    // Dialogue box: when a mission starts, Dara speaks (name + line) in a
+    // box with her portrait — the HUD shows it for a few seconds.
+    this.dialogue = null; // { name, sub, text }
+    this.dialogueTimer = 0;
   }
 
   get currentDef() {
@@ -143,10 +189,14 @@ export class MissionManager {
     if (objective.type === 'collect') {
       return `Kumpulkan tagihan pasar (${this.active.collected}/${objective.spots.length})`;
     }
-    // Timed jobs show the seconds left, so the player can feel the clock.
+    // Timed jobs show the seconds left as m:ss, so the player can feel the
+    // clock. (It used to print "119d" — seconds with a stray "d" suffix,
+    // which read as 119 days on the HUD.)
     if (objective.timeLimit !== undefined) {
       const left = Math.max(0, Math.ceil(objective.timeLimit - this.active.timer));
-      return `${objective.label} · ${left}d`;
+      const m = Math.floor(left / 60);
+      const s = String(left % 60).padStart(2, '0');
+      return `${objective.label} · ${m}:${s}`;
     }
     return objective.label;
   }
@@ -177,9 +227,15 @@ export class MissionManager {
     this.active = { def, objectiveIndex: 0, timer: 0, collected: 0, targetCar: null };
     this.state = 'active';
     this.say(`${def.title} — ${def.brief}`);
+    this.dialogue = { name: 'DARA', sub: 'BENGKEL OMBAK', text: def.line ?? def.brief };
+    this.dialogueTimer = 6;
     if (def.id === 2) {
       // Park the red Kancil GT at the mall for the player to steal.
       this.active.targetCar = game.spawnMissionCar(40, -87, 0, 'sport');
+    }
+    if (def.id === 6) {
+      // Park a yellow taxi on the boulevard for the player to take.
+      this.active.targetCar = game.spawnMissionCar(0, 80, 0, 'taxi');
     }
     if (def.id === 3) {
       game.wanted.add(3, 'razia');
@@ -213,6 +269,7 @@ export class MissionManager {
   // Returns 'objective' | 'complete' | 'failed' | null.
   update(dt, game) {
     if (this.messageTimer > 0) this.messageTimer -= dt;
+    if (this.dialogueTimer > 0) this.dialogueTimer -= dt;
     if (this.state !== 'active' || !this.active) return null;
     const { player, wanted } = game;
     const objective = this.objective;
@@ -231,6 +288,9 @@ export class MissionManager {
       }
       if (d < objective.radius) return this.advance(game);
     } else if (objective.type === 'steal') {
+      if (player.inCar && player.car === this.active.targetCar) return this.advance(game);
+    } else if (objective.type === 'stealTaxi') {
+      // Same trigger as a steal: get in the job's taxi and the job moves on.
       if (player.inCar && player.car === this.active.targetCar) return this.advance(game);
     } else if (objective.type === 'survive') {
       this.active.timer += dt;

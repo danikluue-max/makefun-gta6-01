@@ -26,24 +26,26 @@ export class CameraRig {
   }
 
   // Follow a point at (x, z) facing `heading` (car) or the orbit yaw (on foot).
-  update(dt, target, inCar, carHeading) {
+  // `speed` is the car's speed in m/s (0 on foot): the field of view widens
+  // a little as the car goes faster, so a NOS burst feels like a burst.
+  update(dt, target, inCar, carHeading, speed = 0) {
     const tx = target.x;
     const tz = target.z;
-    const headHeight = inCar ? 2.2 : 2.0;
+    const headHeight = inCar ? 1.9 : 2.0;
     let wantYaw = this.yaw;
     let wantDist = this.distance;
     if (inCar) {
-      // Chase: behind the car, easing toward its heading — a touch closer
-      // and lower than before, so the car fills the frame instead of
-      // floating small at the bottom of the road.
+      // Chase: behind the car, easing toward its heading — close and low,
+      // like the leaderboard covers: the car fills the frame and the road
+      // ahead stays visible instead of a wide empty boulevard.
       let diff = carHeading - this.yaw;
       while (diff > Math.PI) diff -= Math.PI * 2;
       while (diff < -Math.PI) diff += Math.PI * 2;
       this.yaw += diff * Math.min(1, dt * 3.2);
       wantYaw = this.yaw;
-      wantDist = this.distance + 1.2;
+      wantDist = this.distance + 0.5;
     }
-    const pitch = inCar ? this.pitch * 0.62 : this.pitch;
+    const pitch = inCar ? this.pitch * 0.5 : this.pitch;
     const camX = tx - Math.cos(wantYaw) * Math.cos(pitch) * wantDist;
     const camZ = tz + Math.sin(wantYaw) * Math.cos(pitch) * wantDist;
     const camY = headHeight + Math.sin(pitch) * wantDist;
@@ -64,6 +66,13 @@ export class CameraRig {
     this.lookAt.lerp(lookGoal, 1 - Math.pow(0.00001, dt));
     this.camera.position.copy(this.current);
     this.camera.lookAt(this.lookAt);
+    // Speed FOV: 62° standing still, up to 70° at full NOS — a subtle
+    // stretch that sells the speed without warping the frame.
+    const wantFov = inCar ? 62 + Math.min(8, Math.abs(speed) * 0.16) : 62;
+    if (Math.abs(this.camera.fov - wantFov) > 0.05) {
+      this.camera.fov += (wantFov - this.camera.fov) * Math.min(1, dt * 4);
+      this.camera.updateProjectionMatrix();
+    }
   }
 
   // The direction the player faces when walking: the camera's forward on the ground.

@@ -14,14 +14,14 @@ import { Car, createCarMesh, createTraffic, updateTraffic, createParkedCar, near
 import { createPeds, updatePeds, scarePeds, createPedMesh, Ped } from './pedestrians.js';
 import { Player, createPlayerMesh } from './player.js';
 import { Wanted, Police } from './police.js';
-import { MissionManager } from './missions.js';
+import { MissionManager, MISSION_DEFS } from './missions.js';
 import { shootAt, makeMuzzleFlash, makeHitSpark, updateEffects } from './combat.js';
 import { createHud, updateHud } from './hud.js';
 import { AudioEngine } from './audio.js';
 import { createSky, updateSky, DAY_LENGTH_SECONDS } from './skycycle.js';
 import { CameraRig } from './camera.js';
 import { saveGame, loadGame, hasSave } from './savegame.js';
-import { createInput, ACTION_CONFIRM, ACTION_PAUSE, ACTION_ENTER_CAR, ACTION_SHOOT, ACTION_RADIO, ACTION_MUTE, ACTION_HORN } from './input.js';
+import { createInput, ACTION_CONFIRM, ACTION_PAUSE, ACTION_ENTER_CAR, ACTION_SHOOT, ACTION_RADIO, ACTION_MUTE, ACTION_HORN, ACTION_REPAIR, ACTION_PAINT } from './input.js';
 import { stageShot } from './shots.js';
 
 const MAX_FRAME = 0.25;
@@ -45,19 +45,19 @@ const camera = new THREE.PerspectiveCamera(62, 1, 0.1, 1200);
 
 const random = createRandom(seed);
 const city = buildCity(random);
-const { lampHeads } = buildWorld(scene, city);
+const { lampHeads, ferrisSpin } = buildWorld(scene, city);
 const sky = createSky(scene);
 
 const player = new Player(createPlayerMesh(), -106, 120);
 scene.add(player.mesh);
 
-const traffic = createTraffic(city, scene, random, 14);
+const traffic = createTraffic(city, scene, random, 20);
 const parkedCars = [];
 for (const [x, z, heading, type] of [[-90, 120, 0.4, 'sedan'], [80, -70, 1.57, 'taxi'], [160, 80, -1.57, 'pickup'], [-40, 170, 0, 'van'], [120, -160, 3.1, 'sedan']]) {
   const car = createParkedCar(city, scene, random, x, z, heading, type);
   parkedCars.push(car);
 }
-const peds = createPeds(city, scene, random, 26);
+const peds = createPeds(city, scene, random, 34);
 const wanted = new Wanted();
 const police = new Police(scene, city, random);
 const missions = new MissionManager(scene);
@@ -75,7 +75,7 @@ for (const car of parkedCars) tagShootable(car.mesh, { kind: 'car', car });
 for (const ped of peds) tagShootable(ped.mesh, { kind: 'ped', ped });
 
 const game = {
-  scene, camera, renderer, city, random, sky, lampHeads,
+  scene, camera, renderer, city, random, sky, lampHeads, ferrisSpin,
   player, traffic, parkedCars, peds, police, wanted, missions,
   hud, audio, cameraRig, input,
   timeOfDay: 8,
@@ -116,10 +116,11 @@ const titleScreen = makeScreen('screen-title', `
   <h1>NUSA HEAT</h1>
   <p class="tagline">Teluk Nusa — kota pesisir, jalanan panas, satu utang yang harus dibayar.</p>
   <p class="story">Raka pulang ke Teluk Nusa dengan kantong kosong. Dara, yang punya Bengkel Ombak,
-  menawarinya lima pekerjaan: antar, curi, kabur, tagih, dan satu pelarian terakhir.
+  menawarinya delapan pekerjaan: antar, curi, kabur, tagih, kirim kilat, taksi, satu pelarian terakhir,
+  dan balapan liar melawan si Jalak.
   Kota ini milik siapa saja yang berani mengambilnya.</p>
-  <div class="controls">WASD jalan / nyetir &nbsp;·&nbsp; E masuk &amp; keluar mobil &nbsp;·&nbsp; Klik kiri tembak<br>
-  Shift lari &nbsp;·&nbsp; Spasi rem tangan &nbsp;·&nbsp; R ganti radio &nbsp;·&nbsp; M bisu &nbsp;·&nbsp; P jeda</div>
+  <div class="controls">WASD jalan / nyetir &nbsp;·&nbsp; E masuk &amp; keluar mobil &nbsp;·&nbsp; Klik kiri tembak &nbsp;·&nbsp; Shift lari / NOS<br>
+  Spasi rem tangan &nbsp;·&nbsp; C perbaiki &nbsp;·&nbsp; V cat baru (di bengkel) &nbsp;·&nbsp; R ganti radio &nbsp;·&nbsp; M bisu &nbsp;·&nbsp; P jeda</div>
   <div class="buttons">
     <button id="btn-new">MULAI BARU</button>
     <button id="btn-continue">LANJUTKAN</button>
@@ -188,7 +189,7 @@ function continueGame() {
   player.heading = data.heading || 0;
   player.syncMesh();
   missions.completed = data.missionsDone;
-  missions.state = data.missionsDone >= 5 ? 'allDone' : 'idle';
+  missions.state = data.missionsDone >= MISSION_DEFS.length ? 'allDone' : 'idle';
   game.timeOfDay = data.timeOfDay ?? 8;
   game.audio.stationIndex = data.station ?? 0;
   wanted.clear();
@@ -204,9 +205,39 @@ function respawn() {
   player.z = 120;
   player.heading = 0;
   player.syncMesh();
+  // The garage forecourt can hold a parked car (the job's Kancil waits at
+  // (-120, 134)): shove any car sitting on the respawn point aside, so the
+  // player does not wake up standing on a roof. If a car is exactly on the
+  // point there is no push direction, so shove it east instead.
+  for (const car of game.allCars()) {
+    const dx = car.x - player.x;
+    const dz = car.z - player.z;
+    const d = Math.hypot(dx, dz);
+    if (d < 5) {
+      const push = 6 - d;
+      const nx = d < 0.5 ? 1 : dx / d;
+      const nz = d < 0.5 ? 0 : dz / d;
+      car.x += nx * push;
+      car.z += nz * push;
+      car.syncMesh();
+    }
+  }
   wanted.clear();
   game.screen = 'play';
   showScreen('play');
+}
+
+// Garage services: repair and repaint, only at Bengkel Ombak, in a car.
+const PAINTS = [0xd83a2e, 0x2e6fd8, 0xe8c33c, 0x3fae7a, 0xe8e4da, 0x22242a, 0x8a5fc7, 0xd86a2e, 0xff69b4, 0x00e5cc];
+function nearGarageCar() {
+  if (!player.inCar || !player.car) return false;
+  return Math.hypot(player.car.x + 120, player.car.z - 120) < 20;
+}
+function repaintCar(car) {
+  const bodyMat = car.mesh.userData.bodyMat;
+  if (!bodyMat) return;
+  car.paintIndex = ((car.paintIndex ?? 0) + 1) % PAINTS.length;
+  bodyMat.color.setHex(PAINTS[car.paintIndex]);
 }
 
 document.getElementById('btn-new').addEventListener('click', startNew);
@@ -305,6 +336,8 @@ function step() {
   game.elapsed += dt;
   game.timeOfDay += dt * (24 / DAY_LENGTH_SECONDS);
   if (game.timeOfDay >= 24) game.timeOfDay -= 24;
+  // The ferris wheel on the beach turns slowly, all day.
+  if (game.ferrisSpin) game.ferrisSpin.rotation.z = game.elapsed * 0.05;
 
   if (game.screen === 'title') {
     game.titleAngle += dt * 0.05;
@@ -335,7 +368,11 @@ function step() {
     const throttle = move.forward;
     const brake = input.held.space ? 1 : (move.forward < 0 ? 1 : 0);
     const steer = -move.strafe;
-    player.car.drive(dt, throttle, brake, steer);
+    // Shift is NOS while driving (on foot it is run): a burst with a sound
+    // the first frame it kicks in.
+    const nosWas = player.car.nosActive;
+    player.car.drive(dt, throttle, brake, steer, undefined, input.held.shift ? 1 : 0);
+    if (player.car.nosActive && !nosWas) audio.playNos();
     separateCars(dt);
     audio.setEngine(player.car.speed, true);
   } else {
@@ -350,6 +387,28 @@ function step() {
   if (actions & ACTION_ENTER_CAR) {
     if (player.inCar) player.exitCar();
     else enterNearestCar();
+  }
+  // Garage services: C repairs ($100), V repaints ($50) — only at the garage.
+  if (actions & ACTION_REPAIR && player.inCar && player.car) {
+    if (!nearGarageCar()) missions.say('Perbaikan hanya di Bengkel Ombak.');
+    else if (player.car.health >= 100) missions.say('Mobil sudah mulus, tidak perlu diperbaiki.');
+    else if (player.money < 100) missions.say('Uang tidak cukup untuk perbaikan ($100).');
+    else {
+      player.money -= 100;
+      player.car.health = 100;
+      missions.say('Mobil diperbaiki -$100.');
+      audio.playPickup();
+    }
+  }
+  if (actions & ACTION_PAINT && player.inCar && player.car) {
+    if (!nearGarageCar()) missions.say('Cat baru hanya di Bengkel Ombak.');
+    else if (player.money < 50) missions.say('Uang tidak cukup untuk cat baru ($50).');
+    else {
+      player.money -= 50;
+      repaintCar(player.car);
+      missions.say('Cat baru -$50.');
+      audio.playPickup();
+    }
   }
   if (actions & ACTION_CONFIRM && missions.canStart() && missions.nearGarage(player)) {
     missions.startNext(game);
@@ -391,7 +450,7 @@ function step() {
 
   // Camera follows the player (or the car).
   const target = player.inCar && player.car ? { x: player.car.x, z: player.car.z } : { x: player.x, z: player.z };
-  cameraRig.update(dt, target, player.inCar, player.car ? player.car.heading : 0);
+  cameraRig.update(dt, target, player.inCar, player.car ? player.car.heading : 0, player.car ? player.car.speed : 0);
   updateSky(sky, scene, game.timeOfDay, lampHeads);
   updateEffects(scene, game.effects, dt);
   updateHud(hud, game);
@@ -426,6 +485,9 @@ window.__game = {
       playerX: Math.round(game.player.inCar && game.player.car ? game.player.car.x : game.player.x),
       playerZ: Math.round(game.player.inCar && game.player.car ? game.player.car.z : game.player.z),
       carSpeed: game.player.car ? Math.round(game.player.car.speed * 3.6) : 0,
+      nos: game.player.car ? Math.round(game.player.car.nos * 100) : null,
+      nosActive: game.player.car ? game.player.car.nosActive : false,
+      carHealth: game.player.car ? Math.round(game.player.car.health) : null,
       wanted: game.wanted.stars,
       mission: game.missions.active ? game.missions.active.def.title : null,
       missionObjective: game.missions.objectiveLabel,

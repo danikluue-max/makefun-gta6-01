@@ -33,6 +33,13 @@ export function buildCity(random) {
   const palms = [];
   const lamps = [];
   const containers = [];
+  // Street furniture, all hand-placed data for world3d to render: benches
+  // along the boulevard, umbrellas on the beach, crates of market goods by
+  // the stalls, and big sign boards so the skyline reads at a glance.
+  const benches = [];
+  const umbrellas = [];
+  const crates = [];
+  const billboards = [];
 
   // Blocks between neighbouring roads.
   const xs = [-CITY.roadHalf - 60, ...roadsX, CITY.roadHalf + 60];
@@ -130,6 +137,30 @@ export function buildCity(random) {
     palms.push({ x: -10.5, z });
     palms.push({ x: 10.5, z });
   }
+  // Benches face the boulevard every other block, so the sidewalks feel used.
+  for (let z = -140; z <= 140; z += 40) {
+    benches.push({ x: -10.5, z: z + 20, rotY: Math.PI / 2 });
+    benches.push({ x: 10.5, z: z + 20, rotY: -Math.PI / 2 });
+  }
+  // Beach umbrellas in a loose row on the sand, clear of the road.
+  for (let i = 0; i < 12; i += 1) {
+    umbrellas.push({ x: -180 + i * 32 + (i % 3) * 5, z: 208 + (i % 2) * 6, color: pick(random, [0xe05a4e, 0xf2c230, 0x3fae7a, 0x4a90d9, 0x8a5fc7]) });
+  }
+  // Crates of market goods piled beside the stalls.
+  for (const stall of stalls) {
+    if (chance(random, 0.6)) crates.push({ x: stall.x + 4, z: stall.z + 2, color: pick(random, [0x8a6a48, 0xc75b4a, 0x3fae7a]) });
+  }
+  // Billboards: one over the boulevard, one by the port road, one at the mall,
+  // one at the market, one by the pier.
+  billboards.push({ x: -12, z: 80, rotY: Math.PI / 2, text: 'NUSA HEAT', sub: 'TELUK NUSA' });
+  billboards.push({ x: 170, z: 100, rotY: 0, text: 'PANTAI', sub: 'PASIR PUTIH' });
+  billboards.push({ x: 62, z: -120, rotY: -Math.PI / 2, text: 'MALL NUSA', sub: 'BUKA 24 JAM' });
+  billboards.push({ x: -62, z: -40, rotY: Math.PI / 2, text: 'KOPI NUSA', sub: 'BUKA 24 JAM' });
+  billboards.push({ x: 120, z: 180, rotY: 0, text: 'DERMAGA', sub: 'YACHT & IKAN' });
+  // The ferris wheel on the beach by the port: the skyline landmark the
+  // leaderboard covers all have — a big wheel on the shore, visible from
+  // the boulevard at sunset.
+  const ferrisWheel = { x: 165, z: 212 };
   for (const rx of roadsX) {
     for (const rz of roadsZ) {
       lamps.push({ x: rx + 9, z: rz + 9 });
@@ -138,6 +169,7 @@ export function buildCity(random) {
 
   return {
     roadsX, roadsZ, buildings, colliders, stalls, palms, lamps, containers, landmarks,
+    benches, umbrellas, crates, billboards, ferrisWheel,
   };
 }
 

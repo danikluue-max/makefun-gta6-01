@@ -153,6 +153,28 @@ export class AudioEngine {
     this.blip(466, 0.18, 'sawtooth', 0.2);
   }
 
+  // NOS: a rising whoosh — a noise burst through a sweeping filter, plus a
+  // high blip, so the boost is heard as well as seen.
+  playNos() {
+    if (!this.ctx) return;
+    const len = Math.floor(this.ctx.sampleRate * 0.5);
+    const buffer = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < len; i += 1) data[i] = (Math.random() * 2 - 1) * (i / len);
+    const src = this.ctx.createBufferSource();
+    src.buffer = buffer;
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(400, this.ctx.currentTime);
+    filter.frequency.exponentialRampToValueAtTime(3200, this.ctx.currentTime + 0.45);
+    const gain = this.ctx.createGain();
+    gain.gain.value = 0.5;
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.sfxGain);
+    src.start();
+  }
+
   // One step of the radio sequencer: bass on the beat, a sparse lead, hats.
   musicStep() {
     if (!this.ctx || this.muted) return;

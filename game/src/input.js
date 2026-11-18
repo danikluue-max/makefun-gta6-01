@@ -10,6 +10,8 @@ export const ACTION_SHOOT = 8;
 export const ACTION_RADIO = 16;
 export const ACTION_MUTE = 32;
 export const ACTION_HORN = 64;
+export const ACTION_REPAIR = 128;
+export const ACTION_PAINT = 256;
 
 const MOVE = {
   KeyW: 'up', ArrowUp: 'up',
@@ -51,6 +53,12 @@ export function createInput(canvas, cameraRig) {
       actions |= ACTION_MUTE;
     } else if (event.code === 'KeyH') {
       actions |= ACTION_HORN;
+    } else if (event.code === 'KeyC') {
+      // Garage services: repair the car (near the garage, in a car).
+      actions |= ACTION_REPAIR;
+    } else if (event.code === 'KeyV') {
+      // Garage services: repaint the car (near the garage, in a car).
+      actions |= ACTION_PAINT;
     } else {
       return;
     }

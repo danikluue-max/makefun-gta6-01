@@ -16,7 +16,10 @@ export const CAR_TYPES = {
   pickup: { length: 5.0, width: 2.0, height: 0.75, cabin: 0.6 },
   van: { length: 5.2, width: 2.1, height: 1.1, cabin: 0.9 },
   police: { length: 4.6, width: 1.95, height: 0.62, cabin: 0.55 },
-  sport: { length: 4.3, width: 2.0, height: 0.5, cabin: 0.42 },
+  // The sports car is longer, lower and wider than a sedan — a low slung
+  // silhouette with a small cabin set back, so the chase camera reads it
+  // as a GT instead of a tall box on wheels.
+  sport: { length: 4.6, width: 2.05, height: 0.42, cabin: 0.34 },
 };
 
 export function carColorFor(type, random) {
@@ -27,12 +30,16 @@ export function carColorFor(type, random) {
 }
 
 // A car is a group: body + cabin + 4 wheels + headlights + taillights.
-// The group faces +X when heading is 0.
+// The group faces +X when heading is 0. The details are what sells it at
+// street level: a sloped windshield instead of a glass box, a grille and
+// bumper up front, mirrors, and hubcaps — a plain box reads as a toy.
 export function createCarMesh(type, color) {
   const spec = CAR_TYPES[type] ?? CAR_TYPES.sedan;
   const group = new THREE.Group();
   const bodyMat = new THREE.MeshLambertMaterial({ color });
   const glassMat = new THREE.MeshLambertMaterial({ color: 0x1c2836 });
+  const darkMat = new THREE.MeshLambertMaterial({ color: 0x22242a });
+  const chromeMat = new THREE.MeshLambertMaterial({ color: 0xd8dde2 });
   const tyreMat = new THREE.MeshLambertMaterial({ color: 0x14161a });
 
   const body = new THREE.Mesh(new THREE.BoxGeometry(spec.length, spec.height, spec.width), bodyMat);
@@ -40,18 +47,47 @@ export function createCarMesh(type, color) {
   body.castShadow = true;
   group.add(body);
 
+  // Cabin: a glass box with a sloped windshield in front of it, so the car
+  // has a face instead of a flat glass slab. The windshield is a thin box
+  // tilted back (top toward the rear) at the cabin's front edge.
   const cabin = new THREE.Mesh(new THREE.BoxGeometry(spec.length * 0.5, spec.cabin, spec.width * 0.86), glassMat);
   cabin.position.set(-spec.length * 0.05, 0.55 + spec.height / 2 + spec.cabin / 2, 0);
   cabin.castShadow = true;
   group.add(cabin);
+  const windshield = new THREE.Mesh(
+    new THREE.BoxGeometry(0.06, 0.75, spec.width * 0.8),
+    new THREE.MeshLambertMaterial({ color: 0x9fc4d8 }),
+  );
+  windshield.position.set(spec.length * 0.22, 0.55 + spec.height / 2 + spec.cabin * 0.5, 0);
+  windshield.rotation.z = 0.5;
+  group.add(windshield);
+
+  // Grille + bumpers + mirrors: the small chrome and dark bits that make a
+  // car read as a car from the chase camera.
+  const grille = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.22, spec.width * 0.6), darkMat);
+  grille.position.set(spec.length / 2 + 0.01, 0.52, 0);
+  group.add(grille);
+  for (const s of [1, -1]) {
+    const bumper = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.2, spec.width * 0.94), chromeMat);
+    bumper.position.set(s * (spec.length / 2 - 0.05), 0.32, 0);
+    group.add(bumper);
+    const mirror = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 0.12), darkMat);
+    mirror.position.set(spec.length * 0.18, 0.55 + spec.height / 2 + 0.1, s * (spec.width / 2 + 0.06));
+    group.add(mirror);
+  }
 
   const wheelGeo = new THREE.CylinderGeometry(0.36, 0.36, 0.3, 10);
   wheelGeo.rotateX(Math.PI / 2);
+  const hubGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.32, 8);
+  hubGeo.rotateX(Math.PI / 2);
   const wheels = [];
   for (const [wx, wz] of [[1.45, 0.95], [1.45, -0.95], [-1.45, 0.95], [-1.45, -0.95]]) {
     const wheel = new THREE.Mesh(wheelGeo, tyreMat);
     wheel.position.set(wx, 0.36, wz);
     group.add(wheel);
+    const hub = new THREE.Mesh(hubGeo, chromeMat);
+    hub.position.set(wx, 0.36, wz);
+    group.add(hub);
     wheels.push(wheel);
   }
 
@@ -92,9 +128,38 @@ export function createCarMesh(type, color) {
     sign.position.set(-0.2, 0.55 + spec.height / 2 + spec.cabin + 0.1, 0);
     group.add(sign);
   }
+  if (type === 'sport') {
+    // A rear spoiler on the red Kancil GT and the other sports cars.
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, spec.width * 0.9), darkMat);
+    wing.position.set(-spec.length / 2 + 0.15, 0.55 + spec.height + 0.35, 0);
+    group.add(wing);
+    for (const s of [0.7, -0.7]) {
+      const strut = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.3, 0.1), darkMat);
+      strut.position.set(-spec.length / 2 + 0.15, 0.55 + spec.height + 0.18, s);
+      group.add(strut);
+    }
+    // A low front splitter under the nose, so the GT looks planted.
+    const splitter = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, spec.width * 0.96), darkMat);
+    splitter.position.set(spec.length / 2 + 0.05, 0.18, 0);
+    group.add(splitter);
+  }
+  if (type === 'pickup') {
+    // Cargo in the open bed: crates under a tarp-coloured cover.
+    const cargo = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.7, spec.width * 0.8), new THREE.MeshLambertMaterial({ color: 0x8a6a48 }));
+    cargo.position.set(-spec.length * 0.28, 0.55 + spec.height / 2 + 0.35, 0);
+    cargo.castShadow = true;
+    group.add(cargo);
+  }
+  if (type === 'van') {
+    // A roof rack, so the van is not just a tall box.
+    const rack = new THREE.Mesh(new THREE.BoxGeometry(spec.length * 0.6, 0.1, spec.width * 0.7), darkMat);
+    rack.position.set(0, 0.55 + spec.height / 2 + spec.cabin + 0.05, 0);
+    group.add(rack);
+  }
 
   group.userData.wheels = wheels;
   group.userData.spec = spec;
+  group.userData.bodyMat = bodyMat;
   return group;
 }
 
@@ -109,6 +174,8 @@ export class Car {
     this.driver = null; // 'player' | 'traffic' | 'police' | null (parked)
     this.health = 100;
     this.brakeLights = false;
+    this.nos = 1; // NOS tank: 1 = full, 0 = empty. Drains while boosting.
+    this.nosActive = false;
   }
 
   get spec() {
@@ -116,9 +183,17 @@ export class Car {
   }
 
   // Arcade physics: throttle/brake/steer in [-1, 1]. Returns nothing; the mesh
-  // follows the state.
-  drive(dt, throttle, brake, steer, maxSpeed = CAR_TUNING.maxSpeed) {
-    const accel = throttle > 0 ? CAR_TUNING.accel * throttle : 0;
+  // follows the state. `nos` (0/1) is the player's Shift key: while the tank
+  // has charge, top speed and acceleration jump and the tank drains.
+  drive(dt, throttle, brake, steer, maxSpeed = CAR_TUNING.maxSpeed, nos = 0) {
+    this.nosActive = nos > 0 && this.nos > 0.02;
+    if (this.nosActive) {
+      this.nos = Math.max(0, this.nos - CAR_TUNING.nosDrain * dt);
+      maxSpeed = CAR_TUNING.nosMaxSpeed;
+    } else {
+      this.nos = Math.min(1, this.nos + CAR_TUNING.nosRefill * dt);
+    }
+    const accel = throttle > 0 ? (this.nosActive ? CAR_TUNING.nosAccel : CAR_TUNING.accel) * throttle : 0;
     const braking = brake > 0 ? CAR_TUNING.brake * brake : 0;
     if (throttle < 0) this.speed += CAR_TUNING.accel * throttle * dt * 0.6;
     this.speed += accel * dt;
