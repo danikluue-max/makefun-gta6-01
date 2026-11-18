@@ -1,61 +1,77 @@
-// Every tuning number and colour in one place. The playfield is a fixed 1280x720 logical area;
-// the renderer scales it to the window, so no rule below depends on the screen size.
+// NUSA HEAT — tuning numbers, palette, districts and story constants in one place.
+// The city is Teluk Nusa, a fictional sun-soaked coastal city in Indonesia. Every name,
+// character, vehicle and place below is invented for this game.
 
-export const FIELD = { width: 1280, height: 720, groundY: 664 };
-
-/** The simulation's fixed step, in seconds: 60 updates a second whatever the display's rate. */
 export const STEP = 1 / 60;
+export const SAVE_KEY = 'nusa-heat.save.v1';
 
-export const PLAYER = {
-  width: 72,
-  height: 24,
-  speed: 560,
-  invulnerable: 1.5,
+// City extents (metres). Roads form a grid; the sea lies south of the beach strip.
+export const CITY = {
+  half: 220,
+  roadHalf: 160,
+  roadSpacing: 80,
+  roadWidth: 14,
+  beachZ: 196,
+  seaZ: 238,
 };
 
-export const LIVES = 3;
+export const ROADS_X = [-160, -80, 0, 80, 160];
+export const ROADS_Z = [-160, -80, 0, 80, 160];
 
-export const BLOCK = {
-  minWidth: 40,
-  maxWidth: 110,
-  height: 36,
-  speed: 240,
-  speedPerLevel: 30,
-  speedJitter: 90,
-  interval: 0.55,
-  intervalScale: 0.88,
-  minInterval: 0.14,
-  dodgePoints: 1,
+export const DISTRICTS = {
+  downtown: 'Pusat Kota',
+  market: 'Pasar Nusa',
+  port: 'Pelabuhan',
+  housing: 'Perumahan Bukit',
+  beach: 'Pantai Pasir Putih',
 };
-
-export const COIN = {
-  size: 24,
-  speed: 190,
-  speedPerLevel: 14,
-  interval: 1.4,
-  intervalJitter: 0.8,
-  points: 10,
-};
-
-/** Seconds of play per level, and the last level: speeds and spawn rates stop growing there. */
-export const LEVEL = { seconds: 12, max: 12 };
-
-/** How many falling things can exist at once; the pool is allocated once, at boot. */
-export const POOL_SIZE = 64;
 
 export const PALETTE = {
-  backdrop: '#11141b',
-  sky: '#1b1f2a',
-  ground: '#2a3040',
-  player: '#4fc3f7',
-  block: '#e5534b',
-  coin: '#f2c94c',
-  panel: '#252b38',
-  text: '#eef1f5',
-  muted: '#8b93a3',
+  skyDay: 0x4f9be0,
+  skyDeep: 0x2f6fb2,
+  skyDusk: 0xff9a5c,
+  skyNight: 0x0b1026,
+  sea: 0x1d7f8e,
+  sand: 0xe8d29a,
+  asphalt: 0x2e3138,
+  asphaltLine: 0xd8d3c0,
+  sidewalk: 0x8d8578,
+  buildingGlass: 0x9fc4d8,
+  grass: 0x4d8a4a,
 };
 
-export const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
+export const PLAYER_TUNING = {
+  walkSpeed: 6,
+  runSpeed: 10.5,
+  radius: 0.55,
+  maxHealth: 100,
+  pistolDamage: 34,
+  pistolRange: 70,
+  pistolAmmo: 60,
+};
 
-/** Where the best score is kept between visits (this browser only). */
-export const BEST_KEY = 'block-dodger.best';
+export const CAR_TUNING = {
+  accel: 16,
+  brake: 26,
+  reverseMax: 10,
+  maxSpeed: 40,
+  turnRate: 1.9,
+  grip: 8,
+  trafficSpeed: 11,
+  policeSpeed: 44,
+};
+
+export const WANTED = {
+  maxStars: 5,
+  decaySeconds: 26,
+  stealCar: 1,
+  hitPed: 1,
+  hitPolice: 2,
+  shoot: 1,
+  kill: 2,
+};
+
+// Money (rupiah-flavoured "koin" is avoided: the game pays in $ like the street does).
+export const MISSION_REWARDS = [500, 800, 1000, 1200, 2500];
+
+export const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
